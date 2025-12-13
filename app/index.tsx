@@ -19,7 +19,7 @@ export default function App() {
     const unsubscribe = NetInfo.addEventListener(state => {
       const connected = state.isConnected && state.isInternetReachable;
       setIsConnected(connected ?? false);
-      
+
       if (!initialConnectionChecked) {
         setInitialConnectionChecked(true);
         if (connected) {
@@ -53,7 +53,7 @@ export default function App() {
         const connected = state.isConnected && state.isInternetReachable;
         setIsConnected(connected ?? false);
         setInitialConnectionChecked(true);
-        
+
         if (connected) {
           setShouldLoadWebView(true);
         } else {
@@ -179,7 +179,7 @@ export default function App() {
     try {
       const state = await NetInfo.fetch();
       const connected = state.isConnected && state.isInternetReachable;
-      
+
       if (connected) {
         setIsConnected(true);
         setShowConnectionDialog(false);
@@ -209,16 +209,16 @@ export default function App() {
         <View style={styles.dialogContainer}>
           <Text style={styles.dialogTitle}>Connectez-vous à un réseau</Text>
           <Text style={styles.dialogMessage}>
-            Pour utiliser FlowLess, activez les données mobiles ou connectez-vous au Wi-Fi.
+            Pour utiliser SparkPOS, activez les données mobiles ou connectez-vous au Wi-Fi.
           </Text>
           <View style={styles.buttonContainer}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[styles.button, styles.retryButton]}
               onPress={handleRetry}
             >
               <Text style={styles.retryButtonText}>Réessayer</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[styles.button, styles.okButton]}
               onPress={handleConnectionDialogOK}
             >
@@ -230,7 +230,7 @@ export default function App() {
         </View>
         <View style={styles.brandingContainer}>
           <Text style={styles.brandingText}>from</Text>
-          <Text style={styles.brandingLogo}>FlowLess</Text>
+          <Text style={styles.brandingLogo}>SparkPOS</Text>
         </View>
       </View>
     </Modal>
@@ -252,47 +252,47 @@ export default function App() {
           ref={webViewRef}
           key={webViewKey}
           style={styles.webview}
-          source={{ uri: 'https://flow-less.netlify.app/' }}
+          source={{ uri: 'https://sparkpos.bluetech.team/' }}
           injectedJavaScript={injectedJavaScript}
-          
+
           // Performances essentielles
           javaScriptEnabled={true}
           domStorageEnabled={true}
           startInLoadingState={true}
           scalesPageToFit={true}
-          
+
           // Optimisations Android
           mixedContentMode="compatibility"
           thirdPartyCookiesEnabled={true}
           allowsBackForwardNavigationGestures={true}
-          
+
           // Optimisations iOS
           allowsInlineMediaPlayback={true}
           mediaPlaybackRequiresUserAction={false}
           bounces={false}
           scrollEnabled={true}
-          
+
           // Cache et performances
           cacheEnabled={true}
           incognito={false}
-          
+
           // Indicateurs de scroll
           showsHorizontalScrollIndicator={false}
           showsVerticalScrollIndicator={false}
-          
+
           // Ajustements de contenu
           contentInsetAdjustmentBehavior="never"
           automaticallyAdjustContentInsets={false}
-          
+
           // Contrôle du zoom
           minimumZoomScale={0.8}
           maximumZoomScale={0.8}
           zoomScale={0.8}
-          
+
           // Pull-to-refresh ACTIVÉ
           pullToRefreshEnabled={true}
           onRefresh={onRefresh}
-          
+
           // Gestion des événements
           onLoadStart={() => {
             console.log('Chargement démarré');
@@ -307,46 +307,46 @@ export default function App() {
             console.log('Chargement terminé');
             setIsLoading(false);
           }}
-          
+
           onError={(syntheticEvent) => {
             const { nativeEvent } = syntheticEvent;
             console.warn('Erreur WebView:', nativeEvent);
             setIsLoading(false);
-            
+
             // Afficher le dialog de connexion si erreur de réseau
-            if (nativeEvent.description?.includes('net::') || 
-                nativeEvent.description?.includes('network') ||
-                nativeEvent.description?.includes('ERR_INTERNET_DISCONNECTED') ||
-                !isConnected) {
+            if (nativeEvent.description?.includes('net::') ||
+              nativeEvent.description?.includes('network') ||
+              nativeEvent.description?.includes('ERR_INTERNET_DISCONNECTED') ||
+              !isConnected) {
               setShowConnectionDialog(true);
             }
           }}
-          
+
           onRenderProcessGone={() => {
             // Redémarrer la WebView en cas de crash
             console.log('Redémarrage WebView');
             refreshWebView();
           }}
-          
+
           onHttpError={(syntheticEvent) => {
             const { nativeEvent } = syntheticEvent;
             console.warn('Erreur HTTP:', nativeEvent.statusCode);
             setIsLoading(false);
-            
+
             // Afficher le dialog pour certaines erreurs HTTP
             if (nativeEvent.statusCode >= 500 || nativeEvent.statusCode === 0) {
               setShowConnectionDialog(true);
             }
           }}
-          
+
           onContentProcessDidTerminate={() => {
             // iOS uniquement - redémarrer si le processus se termine
             refreshWebView();
           }}
-          
+
           // Optimisations supplémentaires
           containerStyle={{ flex: 1 }}
-          
+
           // Améliorer les performances sur Android
           textZoom={100}
           setBuiltInZoomControls={false}
@@ -359,7 +359,7 @@ export default function App() {
           </Text>
         </View>
       )}
-      
+
       <ConnectionDialog />
     </View>
   );

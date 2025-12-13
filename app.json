@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "FlowLess",
-    "slug": "flowless",
+    "name": "SparkPOS",
+    "slug": "sparkpos",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "flowlessmobile",
+    "scheme": "sparkposmobile",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
@@ -19,7 +19,7 @@
       "edgeToEdgeEnabled": true,
       "hardwareAccelerated": true,
       "largeHeap": true,
-      "package": "com.stenn.flowless"
+      "package": "com.stenn.sparkpos"
     },
     "web": {
       "bundler": "metro",
@@ -44,7 +44,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "6c4b6e78-7179-433b-8c70-f039d946f22c"
+        "projectId": "bfd6557c-129b-41b7-8d21-aee90efa761a"
       }
     }
   }
