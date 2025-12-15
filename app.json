@@ -17,9 +17,8 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "hardwareAccelerated": true,
-      "largeHeap": true,
-      "package": "com.stenn.sparkpos"
+      "package": "com.stenn.sparkpos",
+      "softwareKeyboardLayoutMode": "resize"
     },
     "web": {
       "bundler": "metro",

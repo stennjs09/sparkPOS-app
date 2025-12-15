@@ -1,16 +1,18 @@
 import NetInfo from '@react-native-community/netinfo';
 import Constants from 'expo-constants';
 import { useEffect, useRef, useState } from 'react';
-import { BackHandler, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { BackHandler, Modal, StyleSheet, Text, TouchableOpacity, View, KeyboardAvoidingView, Platform } from 'react-native';
 import type { WebView as WebViewType } from 'react-native-webview';
 import { WebView } from 'react-native-webview';
 
+// Configuration - URL de l'application web
+const WEB_APP_URL = 'http://192.168.1.10:8080/';
+
 export default function App() {
   const [webViewKey, setWebViewKey] = useState(0);
-  const [isConnected, setIsConnected] = useState(false); // Commencer par false
+  const [isConnected, setIsConnected] = useState(false);
   const [showConnectionDialog, setShowConnectionDialog] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [shouldLoadWebView, setShouldLoadWebView] = useState(false); // Contrôler le chargement
+  const [shouldLoadWebView, setShouldLoadWebView] = useState(false);
   const [initialConnectionChecked, setInitialConnectionChecked] = useState(false);
   const webViewRef = useRef<WebViewType>(null);
 
@@ -28,14 +30,10 @@ export default function App() {
           setShowConnectionDialog(true);
         }
       } else {
-        // Connexion établie après avoir été déconnecté
         if (connected && !shouldLoadWebView) {
           setShouldLoadWebView(true);
           setShowConnectionDialog(false);
-          // Recharger la WebView
-          setTimeout(() => {
-            setWebViewKey(prev => prev + 1);
-          }, 100);
+          setTimeout(() => setWebViewKey(prev => prev + 1), 100);
         } else if (!connected) {
           setShowConnectionDialog(true);
         }
@@ -59,8 +57,7 @@ export default function App() {
         } else {
           setShowConnectionDialog(true);
         }
-      } catch (error) {
-        console.error('Erreur lors de la vérification de connexion:', error);
+      } catch {
         setInitialConnectionChecked(true);
         setShowConnectionDialog(true);
       }
@@ -69,98 +66,9 @@ export default function App() {
     checkInitialConnection();
   }, []);
 
-  const injectedJavaScript = `
-    // Approche simplifiée avec meta viewport
-    let metaViewport = document.querySelector('meta[name="viewport"]');
-    if (!metaViewport) {
-      metaViewport = document.createElement('meta');
-      metaViewport.name = 'viewport';
-      document.head.appendChild(metaViewport);
-    }
-    
-    // Définir le viewport pour un zoom fixe à 80%
-    metaViewport.content = 'width=device-width, initial-scale=0.8, minimum-scale=0.8, maximum-scale=0.8, user-scalable=no, viewport-fit=cover';
-    
-    // Désactiver les gestes de zoom
-    document.addEventListener('gesturestart', e => e.preventDefault(), { passive: false });
-    document.addEventListener('gesturechange', e => e.preventDefault(), { passive: false });
-    document.addEventListener('gestureend', e => e.preventDefault(), { passive: false });
-    
-    // Désactiver le double-tap pour zoomer
-    let lastTouchEnd = 0;
-    document.addEventListener('touchend', function(event) {
-      const now = Date.now();
-      if (now - lastTouchEnd <= 300) {
-        event.preventDefault();
-      }
-      lastTouchEnd = now;
-    }, false);
-    
-    // Empêcher le zoom par raccourcis clavier
-    document.addEventListener('keydown', function(e) {
-      if ((e.ctrlKey || e.metaKey) && ['+', '-', '0'].includes(e.key)) {
-        e.preventDefault();
-      }
-    });
-
-    // Optimisations pour la fluidité
-    document.addEventListener('DOMContentLoaded', function() {
-      // Désactiver le zoom involontaire
-      document.addEventListener('gesturestart', function (e) {
-        e.preventDefault();
-      });
-      
-      // Optimiser les transitions CSS
-      document.body.style.setProperty('-webkit-overflow-scrolling', 'touch');
-      document.body.style.setProperty('transform', 'translateZ(0)');
-      document.body.style.setProperty('-webkit-tap-highlight-color', 'transparent');
-      document.body.style.setProperty('-webkit-touch-callout', 'none');
-      document.body.style.setProperty('overscroll-behavior', 'contain');
-      document.body.style.setProperty('touch-action', 'manipulation');
-      
-      // Améliorer le scrolling
-      document.documentElement.style.setProperty('scroll-behavior', 'smooth');
-      
-      // Précharger les images pour éviter les saccades
-      const images = document.querySelectorAll('img');
-      images.forEach(img => {
-        if (!img.complete) {
-          img.loading = 'eager';
-        }
-      });
-    });
-    true;
-  `;
-
-  const preloadContent = () => {
-    webViewRef.current?.injectJavaScript(`
-      // Précharger le contenu supplémentaire
-      const images = document.querySelectorAll('img');
-      images.forEach(img => {
-        if (!img.complete) {
-          img.loading = 'eager';
-        }
-      });
-      
-      // Forcer le repaint pour éviter les glitches
-      document.body.style.display = 'none';
-      document.body.offsetHeight;
-      document.body.style.display = 'block';
-    `);
-  };
-
   const refreshWebView = () => {
     if (isConnected) {
       setWebViewKey(prev => prev + 1);
-    }
-  };
-
-  const onRefresh = () => {
-    console.log('Pull-to-refresh déclenché');
-    if (isConnected) {
-      webViewRef.current?.reload();
-    } else {
-      setShowConnectionDialog(true);
     }
   };
 
@@ -184,16 +92,11 @@ export default function App() {
         setIsConnected(true);
         setShowConnectionDialog(false);
         setShouldLoadWebView(true);
-        // Recharger la WebView
-        setTimeout(() => {
-          setWebViewKey(prev => prev + 1);
-        }, 100);
+        setTimeout(() => setWebViewKey(prev => prev + 1), 100);
       } else {
-        // Toujours pas de connexion, garder le dialog ouvert
         setShowConnectionDialog(true);
       }
-    } catch (error) {
-      console.error('Erreur lors de la nouvelle tentative:', error);
+    } catch {
       setShowConnectionDialog(true);
     }
   };
@@ -236,7 +139,7 @@ export default function App() {
     </Modal>
   );
 
-  // Afficher un écran de chargement si la connexion n'a pas encore été vérifiée
+  // Écran de chargement initial
   if (!initialConnectionChecked) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
@@ -245,113 +148,85 @@ export default function App() {
     );
   }
 
+  // JavaScript injecté pour gérer le scroll clavier sur Android
+  // Stratégie Standard : Scroll simple sur resize
+  const injectedJavaScript = `
+    window.addEventListener("resize", function() {
+      if (document.activeElement && (document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "TEXTAREA")) {
+        document.activeElement.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    });
+    true;
+  `;
+
   return (
     <View style={styles.container}>
       {shouldLoadWebView && isConnected ? (
-        <WebView
-          ref={webViewRef}
-          key={webViewKey}
-          style={styles.webview}
-          source={{ uri: 'https://sparkpos.bluetech.team/' }}
-          injectedJavaScript={injectedJavaScript}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1 }}
+        >
+          <WebView
+            ref={webViewRef}
+            key={webViewKey}
+            style={styles.webview}
+            source={{ uri: WEB_APP_URL }}
 
-          // Performances essentielles
-          javaScriptEnabled={true}
-          domStorageEnabled={true}
-          startInLoadingState={true}
-          scalesPageToFit={true}
+            // Essentiels
+            javaScriptEnabled={true}
+            injectedJavaScript={injectedJavaScript}
+            domStorageEnabled={true}
+            startInLoadingState={true}
 
-          // Optimisations Android
-          mixedContentMode="compatibility"
-          thirdPartyCookiesEnabled={true}
-          allowsBackForwardNavigationGestures={true}
+            // Android
+            mixedContentMode="compatibility"
+            thirdPartyCookiesEnabled={true}
+            textZoom={100}
+            setBuiltInZoomControls={false}
+            setDisplayZoomControls={false}
 
-          // Optimisations iOS
-          allowsInlineMediaPlayback={true}
-          mediaPlaybackRequiresUserAction={false}
-          bounces={false}
-          scrollEnabled={true}
+            // iOS
+            allowsInlineMediaPlayback={true}
+            bounces={false}
+            scrollEnabled={true}
+            contentInsetAdjustmentBehavior="never"
+            automaticallyAdjustContentInsets={false}
 
-          // Cache et performances
-          cacheEnabled={true}
-          incognito={false}
+            // Cache
+            cacheEnabled={true}
+            incognito={false}
 
-          // Indicateurs de scroll
-          showsHorizontalScrollIndicator={false}
-          showsVerticalScrollIndicator={false}
+            // UI
+            showsHorizontalScrollIndicator={false}
+            showsVerticalScrollIndicator={false}
+            pullToRefreshEnabled={true}
 
-          // Ajustements de contenu
-          contentInsetAdjustmentBehavior="never"
-          automaticallyAdjustContentInsets={false}
+            // Événements
+            onError={(syntheticEvent) => {
+              const { nativeEvent } = syntheticEvent;
+              if (
+                nativeEvent.description?.includes('net::') ||
+                nativeEvent.description?.includes('network') ||
+                nativeEvent.description?.includes('ERR_INTERNET_DISCONNECTED') ||
+                !isConnected
+              ) {
+                setShowConnectionDialog(true);
+              }
+            }}
 
-          // Contrôle du zoom
-          minimumZoomScale={0.8}
-          maximumZoomScale={0.8}
-          zoomScale={0.8}
+            onRenderProcessGone={refreshWebView}
+            onContentProcessDidTerminate={refreshWebView}
 
-          // Pull-to-refresh ACTIVÉ
-          pullToRefreshEnabled={true}
-          onRefresh={onRefresh}
+            onHttpError={(syntheticEvent) => {
+              const { nativeEvent } = syntheticEvent;
+              if (nativeEvent.statusCode >= 500 || nativeEvent.statusCode === 0) {
+                setShowConnectionDialog(true);
+              }
+            }}
 
-          // Gestion des événements
-          onLoadStart={() => {
-            console.log('Chargement démarré');
-            setIsLoading(true);
-          }}
-          onLoad={() => {
-            console.log('Page chargée');
-            setIsLoading(false);
-            preloadContent();
-          }}
-          onLoadEnd={() => {
-            console.log('Chargement terminé');
-            setIsLoading(false);
-          }}
-
-          onError={(syntheticEvent) => {
-            const { nativeEvent } = syntheticEvent;
-            console.warn('Erreur WebView:', nativeEvent);
-            setIsLoading(false);
-
-            // Afficher le dialog de connexion si erreur de réseau
-            if (nativeEvent.description?.includes('net::') ||
-              nativeEvent.description?.includes('network') ||
-              nativeEvent.description?.includes('ERR_INTERNET_DISCONNECTED') ||
-              !isConnected) {
-              setShowConnectionDialog(true);
-            }
-          }}
-
-          onRenderProcessGone={() => {
-            // Redémarrer la WebView en cas de crash
-            console.log('Redémarrage WebView');
-            refreshWebView();
-          }}
-
-          onHttpError={(syntheticEvent) => {
-            const { nativeEvent } = syntheticEvent;
-            console.warn('Erreur HTTP:', nativeEvent.statusCode);
-            setIsLoading(false);
-
-            // Afficher le dialog pour certaines erreurs HTTP
-            if (nativeEvent.statusCode >= 500 || nativeEvent.statusCode === 0) {
-              setShowConnectionDialog(true);
-            }
-          }}
-
-          onContentProcessDidTerminate={() => {
-            // iOS uniquement - redémarrer si le processus se termine
-            refreshWebView();
-          }}
-
-          // Optimisations supplémentaires
-          containerStyle={{ flex: 1 }}
-
-          // Améliorer les performances sur Android
-          textZoom={100}
-          setBuiltInZoomControls={false}
-          setDisplayZoomControls={false}
-        />
+            containerStyle={{ flex: 1 }}
+          />
+        </KeyboardAvoidingView>
       ) : (
         <View style={[styles.container, styles.loadingContainer]}>
           <Text style={styles.loadingText}>
