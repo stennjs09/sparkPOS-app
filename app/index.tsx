@@ -6,7 +6,7 @@ import type { WebView as WebViewType } from 'react-native-webview';
 import { WebView } from 'react-native-webview';
 
 // Configuration - URL de l'application web
-const WEB_APP_URL = 'http://192.168.1.10:8080/';
+const WEB_APP_URL = 'https://sparkpos.bluetech.team/';
 
 export default function App() {
   const [webViewKey, setWebViewKey] = useState(0);
