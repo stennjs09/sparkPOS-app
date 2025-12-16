@@ -7,9 +7,11 @@
     "icon": "./assets/images/icon.png",
     "scheme": "sparkposmobile",
     "userInterfaceStyle": "automatic",
+    "jsEngine": "hermes",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.stenn.sparkpos"
     },
     "android": {
       "adaptiveIcon": {
@@ -18,7 +20,9 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.stenn.sparkpos",
-      "softwareKeyboardLayoutMode": "resize"
+      "softwareKeyboardLayoutMode": "resize",
+      "enableProguard": true,
+      "enableShrinkResources": true
     },
     "web": {
       "bundler": "metro",
