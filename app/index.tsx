@@ -1,17 +1,20 @@
 import { WebView } from 'react-native-webview';
 import * as WebBrowser from 'expo-web-browser';
-import { useRef, useState, useEffect } from 'react';
-import { BackHandler, StyleSheet, View, ActivityIndicator, Platform } from 'react-native';
+import { useRef, useState, useEffect, useCallback } from 'react';
+import { StyleSheet, View, ActivityIndicator, Platform, KeyboardAvoidingView } from 'react-native';
 import Constants from 'expo-constants';
+import NetInfo from '@react-native-community/netinfo';
 
-// Configuration - URL de l'application web
+// ====================================
+// FACEBOOK LITE CONFIGURATION
+// ====================================
 const WEB_APP_URL = 'https://sparkpos.bluetech.team/';
 const APP_DOMAIN = 'sparkpos.bluetech.team';
 
-// User-Agent custom pour identifier l'app mobile
-const CUSTOM_USER_AGENT = `SparkPOS-Mobile/1.0 ${Platform.OS === 'ios' ? 'iOS' : 'Android'}`;
+// Ultra-minimal User-Agent
+const CUSTOM_USER_AGENT = `SparkPOS/1.0 ${Platform.OS}`;
 
-// Couleurs du thème SparkPOS
+// Theme colors
 const COLORS = {
   primary: '#1877f2',
   background: '#f5f5f5',
@@ -20,32 +23,34 @@ const COLORS = {
 export default function App() {
   const webViewRef = useRef<WebView>(null);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [isConnected, setIsConnected] = useState(true);
+
+  // Network monitoring for offline-first behavior
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener(state => {
+      setIsConnected(state.isConnected ?? true);
+    });
+    return () => unsubscribe();
+  }, []);
 
   // Facebook Lite Strategy: Loading ONLY at startup (once)
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setInitialLoading(false);
-    }, 3000); // Max 3s at startup
-
+    const timer = setTimeout(() => setInitialLoading(false), 2500);
     return () => clearTimeout(timer);
   }, []);
 
-  // Gestion de la navigation hybride (WebView vs Chrome Custom Tabs)
-  const handleNavigationStateChange = async (navState: any) => {
+  // Memoized navigation handler
+  const handleNavigationStateChange = useCallback(async (navState: any) => {
     try {
       const url = new URL(navState.url);
 
-      // Navigation interne (même domaine) → rester dans WebView
-      if (url.hostname === APP_DOMAIN) {
-        return true; // Continue navigation dans WebView
-      }
+      // Internal navigation → stay in WebView
+      if (url.hostname === APP_DOMAIN) return true;
 
-      // Navigation externe → ouvrir Chrome Custom Tabs
+      // External navigation → Chrome Custom Tabs
       if (navState.url !== WEB_APP_URL && !navState.loading) {
-        // Empêcher la navigation dans WebView
         webViewRef.current?.stopLoading();
 
-        // Ouvrir dans le navigateur système
         await WebBrowser.openBrowserAsync(navState.url, {
           toolbarColor: COLORS.primary,
           controlsColor: '#ffffff',
@@ -53,183 +58,153 @@ export default function App() {
           dismissButtonStyle: 'close',
         });
 
-        // Retourner à l'URL principale
         webViewRef.current?.goBack();
-
-        return false; // Empêcher navigation WebView
+        return false;
       }
     } catch (error) {
-      // Navigation error silently handled
+      // Silent error handling
     }
-
     return true;
-  };
+  }, []);
 
-  // Gestion du bouton retour Android
-  const handleBackPress = () => {
-    if (webViewRef.current) {
-      webViewRef.current.goBack();
-      return true;
-    }
-    return false;
-  };
-
-  // JS Bridge - Communication Native ↔ Web
-  const handleMessage = (event: any) => {
+  // Memoized message handler
+  const handleMessage = useCallback((event: any) => {
     try {
       const message = JSON.parse(event.nativeEvent.data);
-
-      switch (message.type) {
-        case 'NAVIGATION':
-          if (message.url) {
-            handleNavigationStateChange({ url: message.url, loading: false });
-          }
-          break;
-
-        case 'SHARE':
-          // TODO: Implémenter partage natif si requis
-          break;
-
-        case 'HAPTIC':
-          // TODO: Implémenter vibration si requis
-          break;
-
-        default:
-        // Unknown message type
+      if (message.type === 'NAVIGATION' && message.url) {
+        handleNavigationStateChange({ url: message.url, loading: false });
       }
     } catch (error) {
-      // Message handling error silently handled
+      // Silent error handling
     }
-  };
+  }, [handleNavigationStateChange]);
 
-  // Script injecté pour JS Bridge
-  const injectedJavaScript = `
+  // Memoized request filter
+  const handleShouldStartLoad = useCallback((request: any) => {
+    try {
+      if (request.url.startsWith('data:') || request.url.startsWith('about:')) {
+        return true;
+      }
+      const url = new URL(request.url);
+      return url.hostname === APP_DOMAIN || url.hostname.endsWith(`.${APP_DOMAIN}`);
+    } catch (error) {
+      return true;
+    }
+  }, []);
+
+  // Minimal JS Bridge + Keyboard scroll fix
+  const injectedJS = `
     (function() {
-      // Interface de communication Web → Native
-      window.ReactNativeWebView = window.ReactNativeWebView || {};
-      
-      // Détection environnement WebView
       window.isNativeApp = true;
       window.platform = '${Platform.OS}';
-      
-      // Helper pour envoyer messages au natif
       window.nativeBridge = {
-        postMessage: function(type, data) {
-          if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
-            window.ReactNativeWebView.postMessage(JSON.stringify({ type, ...data }));
+        postMessage: function(t, d) {
+          if (window.ReactNativeWebView) {
+            window.ReactNativeWebView.postMessage(JSON.stringify({ type: t, ...d }));
           }
         }
       };
       
-      // Intercepter clics sur liens pour gestion hybride
+      // Handle external link clicks
       document.addEventListener('click', function(e) {
-        const target = e.target.closest('a');
-        if (target && target.href) {
-          const url = new URL(target.href);
-          if (url.hostname !== '${APP_DOMAIN}') {
-            e.preventDefault();
-            window.nativeBridge.postMessage('NAVIGATION', { url: target.href });
-          }
+        var a = e.target.closest('a');
+        if (a && a.href) {
+          try {
+            var u = new URL(a.href);
+            if (u.hostname !== '${APP_DOMAIN}') {
+              e.preventDefault();
+              window.nativeBridge.postMessage('NAVIGATION', { url: a.href });
+            }
+          } catch(err) {}
         }
       }, true);
       
-      true; // Required for iOS
+      // KEYBOARD FIX: Scroll focused input into view
+      document.addEventListener('focus', function(e) {
+        var el = e.target;
+        if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') {
+          // Wait for keyboard animation
+          setTimeout(function() {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }, 300);
+        }
+      }, true);
+      
+      true;
     })();
   `;
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior="padding"
+      keyboardVerticalOffset={0}
+    >
       <WebView
         ref={webViewRef}
         source={{ uri: WEB_APP_URL }}
 
-        // Performance & Cache
+        // === PERFORMANCE (Facebook Lite) ===
         cacheEnabled={true}
         cacheMode="LOAD_CACHE_ELSE_NETWORK"
-        startInLoadingState={false} // CRITICAL: No built-in loading state
+        startInLoadingState={false}
 
-        // Security
-        allowsBackForwardNavigationGestures={true}
-        allowsInlineMediaPlayback={true}
-        mediaPlaybackRequiresUserAction={false}
+        // === MEMORY OPTIMIZATION ===
+        incognito={false}
+        pullToRefreshEnabled={false}
+        overScrollMode="never"
 
-        // Keyboard handling (Android)
+        // === KEYBOARD ===
         keyboardDisplayRequiresUserAction={false}
         nestedScrollEnabled={true}
+        automaticallyAdjustContentInsets={true}
 
-        // Storage
+        // === STORAGE ===
         domStorageEnabled={true}
         thirdPartyCookiesEnabled={true}
         sharedCookiesEnabled={true}
 
-        // User Agent
+        // === USER AGENT ===
         userAgent={CUSTOM_USER_AGENT}
 
-        // JS Bridge
-        injectedJavaScriptBeforeContentLoaded={injectedJavaScript}
+        // === JS BRIDGE ===
+        injectedJavaScriptBeforeContentLoaded={injectedJS}
         onMessage={handleMessage}
         javaScriptEnabled={true}
 
-        // Navigation
+        // === NAVIGATION ===
         onNavigationStateChange={handleNavigationStateChange}
-        onShouldStartLoadWithRequest={(request) => {
-          try {
-            // Allow data URLs and about:blank (system navigation)
-            if (request.url.startsWith('data:') || request.url.startsWith('about:')) {
-              return true;
-            }
+        onShouldStartLoadWithRequest={handleShouldStartLoad}
+        allowsBackForwardNavigationGestures={true}
 
-            const url = new URL(request.url);
+        // === MEDIA ===
+        allowsInlineMediaPlayback={true}
+        mediaPlaybackRequiresUserAction={false}
 
-            // Allow navigation to main domain
-            if (url.hostname === APP_DOMAIN || url.hostname.endsWith(`.${APP_DOMAIN}`)) {
-              return true;
-            }
+        // === LOADING ===
+        onLoadEnd={() => initialLoading && setInitialLoading(false)}
+        onError={() => setInitialLoading(false)}
+        onHttpError={() => setInitialLoading(false)}
 
-            // Block external navigation (will be handled by onNavigationStateChange)
-            return false;
-          } catch (error) {
-            // If URL parsing fails, allow navigation by default
-            return true;
-          }
-        }}
-
-        // Loading - Facebook Lite style: only on FIRST load
-        onLoadStart={() => {
-          // Do nothing - no loading indicator on navigation
-        }}
-        onLoadEnd={() => {
-          // Only hide initial loading, never show loading again
-          if (initialLoading) {
-            setInitialLoading(false);
-          }
-        }}
-        onError={(syntheticEvent) => {
-          const { nativeEvent } = syntheticEvent;
-          // WebView error silently handled
-          setInitialLoading(false);
-        }}
-        onHttpError={(syntheticEvent) => {
-          const { nativeEvent } = syntheticEvent;
-          // HTTP error silently handled
-          setInitialLoading(false);
-        }}
-
-        // iOS specific
+        // === iOS ===
         bounces={false}
         scrollEnabled={true}
+        contentInsetAdjustmentBehavior="automatic"
 
-        // Style
+        // === ANDROID HARDWARE ACCELERATION ===
+        androidLayerType="hardware"
+
+        // === Style ===
         style={styles.webview}
       />
 
-      {/* Loading indicator - ONLY at initial startup */}
+      {/* Initial loading only */}
       {initialLoading && (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={COLORS.primary} />
         </View>
       )}
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -251,6 +226,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
   },
 });
